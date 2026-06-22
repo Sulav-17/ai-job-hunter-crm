@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+httpx
+httpx2>=2.0.0
+pytest
+python-dotenv
