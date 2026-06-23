@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 2 Functionality
+## Current Milestone 3 Functionality
 
-Milestone 2 provides only:
+Milestone 3 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -22,10 +22,11 @@ Milestone 2 provides only:
 - lazy application settings loaded from environment variables or `.env`
 - a synchronous SQLAlchemy Engine and session factory
 - Alembic migration setup
-- one empty baseline migration
-- tests for health, readiness, and a real PostgreSQL `SELECT 1`
+- a PostgreSQL-backed `candidate_profiles` table
+- candidate profile CRUD endpoints
+- tests for health, readiness, database connectivity, schema validation, and candidate API behavior
 
-No CRM tables, domain models, CRUD routes, AI providers, frontend, analytics, scraping, authentication, or demo mode are implemented yet.
+Resume parsing, skills, jobs, applications, matching, AI generation, frontend functionality, analytics, authentication, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -43,7 +44,7 @@ No CRM tables, domain models, CRUD routes, AI providers, frontend, analytics, sc
 
 ## PostgreSQL Prerequisite
 
-Milestone 2 expects PostgreSQL to be reachable on host port `5433`.
+The application expects PostgreSQL to be reachable on host port `5433`.
 
 One local container option is:
 
@@ -98,7 +99,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The current baseline migration is intentionally empty and creates no CRM tables.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table.
 
 ## Run The API
 
@@ -136,6 +137,45 @@ When PostgreSQL is unavailable:
 {"detail": "Database unavailable"}
 ```
 
+## Candidate Profiles
+
+Candidate profiles currently include:
+
+- `id`
+- `full_name`
+- `headline`
+- `location`
+- `professional_summary`
+- `years_experience`
+- `resume_text`
+- `created_at`
+- `updated_at`
+
+`years_experience` must be between `0` and `80` when provided. List responses intentionally exclude `professional_summary` and `resume_text`.
+
+Candidate endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/candidates` | Create a candidate profile |
+| `GET` | `/candidates` | List candidate summaries |
+| `GET` | `/candidates/{candidate_id}` | Retrieve one candidate profile |
+| `PATCH` | `/candidates/{candidate_id}` | Partially update one candidate profile |
+| `DELETE` | `/candidates/{candidate_id}` | Delete one candidate profile |
+
+Example fictional request:
+
+```json
+{
+  "full_name": "Avery Stone",
+  "headline": "Data Analyst",
+  "location": "Toronto, ON",
+  "professional_summary": "Fictional analyst profile for local testing.",
+  "years_experience": 4,
+  "resume_text": "Fictional resume text. Do not use real resume content in examples."
+}
+```
+
 ## Run Tests
 
 Run the full suite:
@@ -154,4 +194,10 @@ Run the PostgreSQL integration test:
 
 ```powershell
 python -m pytest -q tests/integration/test_database.py
+```
+
+Run candidate tests:
+
+```powershell
+python -m pytest -q tests/unit/test_candidate_schemas.py tests/integration/test_candidates_api.py
 ```
