@@ -1,3 +1,3 @@
-from backend.models import candidate, job, job_parse_result, skill
+from backend.models import candidate, candidate_parse_result, job, job_parse_result, skill
 
-__all__ = ["candidate", "job", "job_parse_result", "skill"]
+__all__ = ["candidate", "candidate_parse_result", "job", "job_parse_result", "skill"]

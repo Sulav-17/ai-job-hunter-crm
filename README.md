@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 5 Functionality
+## Current Milestone 6 Functionality
 
-Milestone 5 provides:
+Milestone 6 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -32,9 +32,11 @@ Milestone 5 provides:
 - minimum years-of-experience extraction
 - basic education-requirement extraction
 - persisted parse results and job-skill associations
+- deterministic parsing of saved candidate resume text
+- persisted candidate parse results and candidate-skill associations
 - tests for health, readiness, database connectivity, schema validation, candidate API behavior, job API behavior, and deterministic parsing behavior
 
-Candidate parsing, candidate-job matching, applications, AI generation, embeddings, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
+Candidate-job matching, applications, AI generation, embeddings, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -107,7 +109,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`.
 
 ## Run The API
 
@@ -286,6 +288,42 @@ Parser limitations:
 - does not parse candidate resumes
 - does not infer unstated skills, education, or experience
 
+## Deterministic Candidate Parsing
+
+The candidate parser uses deterministic Python logic only. It parses the saved `resume_text` on a candidate profile and does not accept arbitrary resume text through the API.
+
+Candidate parser outputs include:
+
+- normalized candidate skills
+- short evidence snippets
+- explicitly stated years of experience
+- basic education level
+- parser version
+- parsed timestamp
+
+Candidate parsing endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/candidates/{candidate_id}/parse` | Parse the saved candidate resume text and persist the result |
+| `GET` | `/candidates/{candidate_id}/parse-result` | Retrieve the current saved candidate parse result |
+
+Missing or blank resume text returns:
+
+```json
+{"detail": "Candidate resume text is required"}
+```
+
+Candidate parser limitations:
+
+- only recognizes skills in the code-defined catalog
+- extracts only explicit supported years-of-experience phrases
+- extracts only supported education phrases
+- does not calculate experience from date ranges
+- does not modify the original candidate profile
+- does not match candidates to jobs
+- does not use LLMs, embeddings, or semantic similarity
+
 ## Run Tests
 
 Run the full suite:
@@ -322,4 +360,10 @@ Run parser tests:
 
 ```powershell
 python -m pytest -q tests/unit/test_skill_catalog.py tests/unit/test_job_parser.py tests/integration/test_job_parsing_api.py
+```
+
+Run candidate parser tests:
+
+```powershell
+python -m pytest -q tests/unit/test_candidate_parser.py tests/integration/test_candidate_parsing_api.py
 ```

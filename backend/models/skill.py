@@ -17,6 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.database.base import Base
 
 if TYPE_CHECKING:
+    from backend.models.candidate_parse_result import CandidateSkill
     from backend.models.job import JobPosting
 
 
@@ -37,6 +38,9 @@ class Skill(Base):
     )
 
     job_skills: Mapped[list[JobSkill]] = relationship(
+        back_populates="skill",
+    )
+    candidate_skills: Mapped[list[CandidateSkill]] = relationship(
         back_populates="skill",
     )
 

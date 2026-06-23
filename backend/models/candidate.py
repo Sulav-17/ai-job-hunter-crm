@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database.base import Base
+
+if TYPE_CHECKING:
+    from backend.models.candidate_parse_result import (
+        CandidateParseResult,
+        CandidateSkill,
+    )
 
 
 class CandidateProfile(Base):
@@ -33,4 +42,16 @@ class CandidateProfile(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+    candidate_skills: Mapped[list[CandidateSkill]] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    parse_result: Mapped[CandidateParseResult | None] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
     )
