@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 4 Functionality
+## Current Milestone 5 Functionality
 
-Milestone 4 provides:
+Milestone 5 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -26,9 +26,15 @@ Milestone 4 provides:
 - candidate profile CRUD endpoints
 - a PostgreSQL-backed `job_postings` table
 - job posting CRUD endpoints for manually entered fictional or local job data
-- tests for health, readiness, database connectivity, schema validation, candidate API behavior, and job API behavior
+- deterministic parsing of saved job descriptions
+- normalized skill extraction with aliases
+- required versus preferred skill classification
+- minimum years-of-experience extraction
+- basic education-requirement extraction
+- persisted parse results and job-skill associations
+- tests for health, readiness, database connectivity, schema validation, candidate API behavior, job API behavior, and deterministic parsing behavior
 
-Parsing, extracted skills, matching, applications, AI generation, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
+Candidate parsing, candidate-job matching, applications, AI generation, embeddings, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -101,7 +107,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`.
 
 ## Run The API
 
@@ -234,6 +240,52 @@ Example fictional request:
 }
 ```
 
+## Deterministic Job Parsing
+
+The parser uses deterministic Python logic only. It does not use LLMs, embeddings, semantic similarity, external AI APIs, or job-board scraping.
+
+Parser outputs include:
+
+- required skills
+- preferred skills
+- normalized canonical skill names
+- short evidence snippets
+- minimum years of experience
+- basic education requirement
+- parser version
+- parsed timestamp
+
+Parsing endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/jobs/{job_id}/parse` | Parse the saved job description and persist the result |
+| `GET` | `/jobs/{job_id}/parse-result` | Retrieve the current saved parse result |
+
+Example fictional workflow:
+
+```powershell
+python -m alembic upgrade head
+python -m uvicorn backend.main:app --reload
+```
+
+Create a fictional job with `POST /jobs`, then parse it:
+
+```text
+POST /jobs/1/parse
+GET /jobs/1/parse-result
+```
+
+Parser limitations:
+
+- only recognizes skills in the code-defined catalog
+- uses aliases and boundary-safe regular expressions, not fuzzy matching
+- extracts only supported years-of-experience patterns
+- extracts only supported education phrases
+- does not score candidate fit
+- does not parse candidate resumes
+- does not infer unstated skills, education, or experience
+
 ## Run Tests
 
 Run the full suite:
@@ -264,4 +316,10 @@ Run job tests:
 
 ```powershell
 python -m pytest -q tests/unit/test_job_schemas.py tests/integration/test_jobs_api.py
+```
+
+Run parser tests:
+
+```powershell
+python -m pytest -q tests/unit/test_skill_catalog.py tests/unit/test_job_parser.py tests/integration/test_job_parsing_api.py
 ```

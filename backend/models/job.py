@@ -1,9 +1,17 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import relationship
 
 from backend.database.base import Base
+
+if TYPE_CHECKING:
+    from backend.models.job_parse_result import JobParseResult
+    from backend.models.skill import JobSkill
 
 
 class JobPosting(Base):
@@ -51,4 +59,16 @@ class JobPosting(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+    job_skills: Mapped[list[JobSkill]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    parse_result: Mapped[JobParseResult | None] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
     )
