@@ -11,3 +11,7 @@ htmlcov/
 private_data/
 uploads/
 local_storage/
+
+AGENTS.md
+docs/milestones/
+docs/internal/
