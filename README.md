@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 3 Functionality
+## Current Milestone 4 Functionality
 
-Milestone 3 provides:
+Milestone 4 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -24,9 +24,11 @@ Milestone 3 provides:
 - Alembic migration setup
 - a PostgreSQL-backed `candidate_profiles` table
 - candidate profile CRUD endpoints
-- tests for health, readiness, database connectivity, schema validation, and candidate API behavior
+- a PostgreSQL-backed `job_postings` table
+- job posting CRUD endpoints for manually entered fictional or local job data
+- tests for health, readiness, database connectivity, schema validation, candidate API behavior, and job API behavior
 
-Resume parsing, skills, jobs, applications, matching, AI generation, frontend functionality, analytics, authentication, and demo mode are not implemented yet.
+Parsing, extracted skills, matching, applications, AI generation, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -99,7 +101,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table.
 
 ## Run The API
 
@@ -176,6 +178,62 @@ Example fictional request:
 }
 ```
 
+## Job Postings
+
+Job postings currently include:
+
+- `id`
+- `title`
+- `company`
+- `location`
+- `employment_type`
+- `work_mode`
+- `source_url`
+- `description`
+- `created_at`
+- `updated_at`
+
+`description` must contain 50 to 50,000 characters after trimming. List responses intentionally exclude `description` and `source_url`.
+
+Valid `employment_type` values:
+
+- `full_time`
+- `part_time`
+- `contract`
+- `internship`
+- `temporary`
+- `other`
+
+Valid `work_mode` values:
+
+- `remote`
+- `hybrid`
+- `on_site`
+
+Job endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/jobs` | Create a job posting |
+| `GET` | `/jobs` | List job posting summaries |
+| `GET` | `/jobs/{job_id}` | Retrieve one job posting |
+| `PATCH` | `/jobs/{job_id}` | Partially update one job posting |
+| `DELETE` | `/jobs/{job_id}` | Delete one job posting |
+
+Example fictional request:
+
+```json
+{
+  "title": "Data Analyst",
+  "company": "Northstar Labs",
+  "location": "Toronto, ON",
+  "employment_type": "full_time",
+  "work_mode": "hybrid",
+  "source_url": "https://example.com/jobs/data-analyst",
+  "description": "This fictional role supports internal reporting workflows, stakeholder communication, and careful documentation for local testing."
+}
+```
+
 ## Run Tests
 
 Run the full suite:
@@ -200,4 +258,10 @@ Run candidate tests:
 
 ```powershell
 python -m pytest -q tests/unit/test_candidate_schemas.py tests/integration/test_candidates_api.py
+```
+
+Run job tests:
+
+```powershell
+python -m pytest -q tests/unit/test_job_schemas.py tests/integration/test_jobs_api.py
 ```
