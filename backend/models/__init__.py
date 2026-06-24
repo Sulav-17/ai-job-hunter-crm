@@ -1,4 +1,5 @@
 from backend.models import (
+    application,
     candidate,
     candidate_parse_result,
     job,
@@ -8,6 +9,7 @@ from backend.models import (
 )
 
 __all__ = [
+    "application",
     "candidate",
     "candidate_parse_result",
     "job",

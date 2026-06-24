@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 7 Functionality
+## Current Milestone 8 Functionality
 
-Milestone 7 provides:
+Milestone 8 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -36,9 +36,11 @@ Milestone 7 provides:
 - persisted candidate parse results and candidate-skill associations
 - deterministic, explainable candidate-job match scoring
 - persisted match results and per-skill match details
+- PostgreSQL-backed application tracking
+- status-change history for each application
 - tests for health, readiness, database connectivity, schema validation, candidate API behavior, job API behavior, and deterministic parsing behavior
 
-Applications, AI generation, embeddings, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
+AI generation, embeddings, frontend functionality, Kanban workflows, analytics, reminders, email, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -111,7 +113,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`. The sixth migration creates only match scoring tables: `match_results` and `match_skill_details`.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`. The sixth migration creates only match scoring tables: `match_results` and `match_skill_details`. The seventh migration creates only application tracking tables: `applications` and `application_status_history`.
 
 ## Run The API
 
@@ -352,6 +354,41 @@ Saved match results can become stale. Updating or re-parsing a candidate or job 
 
 Match responses include component scores, applicable weights, matched and missing required skills, matched and missing preferred skills, experience comparison, education comparison, scoring version, and calculation timestamp. Responses do not include `resume_text` or raw job descriptions.
 
+## Application Tracking
+
+Application tracking links one candidate to one job with a current status and a status-change history. It does not apply to jobs automatically, send email, schedule reminders, provide Kanban UI, or add analytics.
+
+Allowed application statuses:
+
+- `saved`
+- `applied`
+- `interview`
+- `rejected`
+- `offer`
+
+Application endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/applications` | Create an application and initial status-history row |
+| `GET` | `/applications` | List applications newest first |
+| `GET` | `/applications/{application_id}` | Retrieve one application |
+| `PATCH` | `/applications/{application_id}` | Partially update one application |
+| `DELETE` | `/applications/{application_id}` | Delete one application |
+| `GET` | `/applications/{application_id}/status-history` | Retrieve status history oldest first |
+
+Creating an application defaults to `saved` when status is omitted. Each candidate-job pair can have only one application record. Creating a duplicate returns:
+
+```json
+{"detail": "Application already exists for this candidate and job"}
+```
+
+Status changes append one history row. Patching the same status again does not add duplicate history. Updating only notes or timestamps does not add history.
+
+When status changes to `applied`, `applied_at` is automatically set only if it is not supplied in the PATCH and the stored value is currently null. Explicit `applied_at` values, including explicit null, are preserved. Creating an application does not invent `applied_at`.
+
+List responses intentionally exclude notes. Application responses do not include candidate resume text, professional summaries, raw job descriptions, parsing evidence, matching evidence, or generated content.
+
 ## Run Tests
 
 Run the full suite:
@@ -400,4 +437,10 @@ Run match scoring tests:
 
 ```powershell
 python -m pytest -q tests/unit/test_match_scorer.py tests/integration/test_matching_api.py
+```
+
+Run application tracking tests:
+
+```powershell
+python -m pytest -q tests/unit/test_application_schemas.py tests/integration/test_applications_api.py
 ```

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.database.base import Base
 
 if TYPE_CHECKING:
+    from backend.models.application import Application
     from backend.models.candidate_parse_result import (
         CandidateParseResult,
         CandidateSkill,
@@ -57,6 +58,11 @@ class CandidateProfile(Base):
         uselist=False,
     )
     match_results: Mapped[list[MatchResult]] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    applications: Mapped[list[Application]] = relationship(
         back_populates="candidate",
         cascade="all, delete-orphan",
         passive_deletes=True,

@@ -10,6 +10,7 @@ from sqlalchemy.orm import relationship
 from backend.database.base import Base
 
 if TYPE_CHECKING:
+    from backend.models.application import Application
     from backend.models.job_parse_result import JobParseResult
     from backend.models.match_result import MatchResult
     from backend.models.skill import JobSkill
@@ -74,6 +75,11 @@ class JobPosting(Base):
         uselist=False,
     )
     match_results: Mapped[list[MatchResult]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    applications: Mapped[list[Application]] = relationship(
         back_populates="job",
         cascade="all, delete-orphan",
         passive_deletes=True,
