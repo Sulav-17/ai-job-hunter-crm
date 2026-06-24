@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from backend.models.job_parse_result import JobParseResult
     from backend.models.match_result import MatchResult
     from backend.models.skill import JobSkill
+    from backend.models.tailoring import TailoringResult
 
 
 class JobPosting(Base):
@@ -92,6 +93,11 @@ class JobPosting(Base):
         uselist=False,
     )
     semantic_match_results: Mapped[list[SemanticMatchResult]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    tailoring_results: Mapped[list[TailoringResult]] = relationship(
         back_populates="job",
         cascade="all, delete-orphan",
         passive_deletes=True,

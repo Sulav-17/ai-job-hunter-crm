@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     )
     from backend.models.embedding import CandidateEmbedding, SemanticMatchResult
     from backend.models.match_result import MatchResult
+    from backend.models.tailoring import TailoringResult
 
 
 class CandidateProfile(Base):
@@ -75,6 +76,11 @@ class CandidateProfile(Base):
         uselist=False,
     )
     semantic_match_results: Mapped[list[SemanticMatchResult]] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    tailoring_results: Mapped[list[TailoringResult]] = relationship(
         back_populates="candidate",
         cascade="all, delete-orphan",
         passive_deletes=True,

@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 9 Functionality
+## Current Milestone 10 Functionality
 
-Milestone 9 provides:
+Milestone 10 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -41,9 +41,14 @@ Milestone 9 provides:
 - PostgreSQL pgvector-backed candidate and job embeddings
 - local Ollama embedding-provider support
 - persisted semantic candidate-job similarity results
+- a PostgreSQL-backed `tailoring_results` table
+- local Ollama text-generation provider support behind an injectable interface
+- text-only tailoring endpoints for saved candidate/job pairs
+- grounded tailored summaries, resume-bullet suggestions, cover-letter drafts, keywords, and warnings
+- stale-result detection based on source hashes, deterministic match context, provider/model identity, and prompt version
 - tests for health, readiness, database connectivity, schema validation, candidate API behavior, job API behavior, and deterministic parsing behavior
 
-AI generation, resume tailoring, cover letters, interview preparation, frontend functionality, Kanban workflows, analytics, reminders, email, authentication, scraping, search, filtering, pagination, file exports, and demo mode are not implemented yet.
+File generation, interview preparation, frontend functionality, Kanban workflows, analytics, reminders, email, authentication, scraping, search, filtering, pagination, file exports, cloud AI providers, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -60,6 +65,7 @@ AI generation, resume tailoring, cover letters, interview preparation, frontend 
 - PostgreSQL
 - pgvector
 - local Ollama embeddings
+- local Ollama text generation
 
 ## PostgreSQL Prerequisite
 
@@ -106,6 +112,9 @@ EMBEDDING_PROVIDER=ollama
 EMBEDDING_MODEL=nomic-embed-text
 OLLAMA_BASE_URL=http://localhost:11434
 EMBEDDING_TIMEOUT_SECONDS=60
+GENERATION_PROVIDER=ollama
+GENERATION_MODEL=qwen3:4b
+GENERATION_TIMEOUT_SECONDS=120
 ```
 
 The `.env` file is ignored by git and should not contain hosted or personal credentials.
@@ -124,7 +133,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`. The sixth migration creates only match scoring tables: `match_results` and `match_skill_details`. The seventh migration creates only application tracking tables: `applications` and `application_status_history`. The eighth migration enables the pgvector extension when needed and creates only embedding and semantic similarity tables: `candidate_embeddings`, `job_embeddings`, and `semantic_match_results`.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`. The sixth migration creates only match scoring tables: `match_results` and `match_skill_details`. The seventh migration creates only application tracking tables: `applications` and `application_status_history`. The eighth migration enables the pgvector extension when needed and creates only embedding and semantic similarity tables: `candidate_embeddings`, `job_embeddings`, and `semantic_match_results`. The ninth migration creates only `tailoring_results`.
 
 ## Run The API
 
@@ -433,6 +442,34 @@ Candidate embedding source is built from labeled `headline`, `professional_summa
 Embedding metadata responses include IDs, provider/model identity, dimensions, source hash, embedded timestamp, and stale status. They never return raw vectors, resume text, professional summaries, job descriptions, parser evidence, matching evidence, or generated content.
 
 Semantic similarity is stored separately from deterministic match scoring. It does not change deterministic match weights or results. Saved semantic results may become stale if source text or embedding model changes; use the POST semantic endpoint to recalculate after refreshing embeddings.
+
+## AI Tailoring Assistant
+
+Tailoring uses a text-generation provider abstraction. The default provider is local Ollama using:
+
+```text
+POST {OLLAMA_BASE_URL}/api/generate
+```
+
+Default local settings:
+
+```env
+GENERATION_PROVIDER=ollama
+GENERATION_MODEL=qwen3:4b
+OLLAMA_BASE_URL=http://localhost:11434
+GENERATION_TIMEOUT_SECONDS=120
+```
+
+Tailoring endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/candidates/{candidate_id}/jobs/{job_id}/tailoring` | Generate or reuse text-only tailoring output |
+| `GET` | `/candidates/{candidate_id}/jobs/{job_id}/tailoring-result` | Retrieve the last saved tailoring result |
+
+Generation requires an existing candidate, an existing job, nonblank candidate `resume_text`, a candidate parse result, and a job parse result. It does not require semantic similarity. The service builds deterministic candidate source, job source, and match context, hashes each with SHA-256, and marks saved results stale when source hashes, match-context hash, provider/model identity, or prompt version differ.
+
+Tailoring responses include only structured generated text, keywords, warnings, hashes, timestamps, and stale status. They do not return raw resume text, professional summary source, raw job descriptions, prompts, provider payloads, vectors, or embeddings.
 
 ## Run Tests
 

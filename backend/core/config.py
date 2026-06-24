@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     ollama_base_url: str = "http://localhost:11434"
     embedding_timeout_seconds: int = Field(default=60, gt=0)
+    generation_provider: str = "ollama"
+    generation_model: str = "qwen3:4b"
+    generation_timeout_seconds: int = Field(default=120, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -26,12 +29,20 @@ class Settings(BaseSettings):
             raise ValueError("EMBEDDING_PROVIDER must be ollama")
         return normalized
 
-    @field_validator("embedding_model", "ollama_base_url")
+    @field_validator("generation_provider")
     @classmethod
-    def reject_blank_embedding_setting(cls, value: str) -> str:
+    def validate_generation_provider(cls, value: str) -> str:
+        normalized = value.strip().casefold()
+        if normalized != "ollama":
+            raise ValueError("GENERATION_PROVIDER must be ollama")
+        return normalized
+
+    @field_validator("embedding_model", "ollama_base_url", "generation_model")
+    @classmethod
+    def reject_blank_provider_setting(cls, value: str) -> str:
         stripped = value.strip()
         if stripped == "":
-            raise ValueError("embedding settings cannot be blank")
+            raise ValueError("provider settings cannot be blank")
         return stripped
 
 

@@ -7,6 +7,7 @@ from backend.models import (
     job_parse_result,
     match_result,
     skill,
+    tailoring,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "job_parse_result",
     "match_result",
     "skill",
+    "tailoring",
 ]
