@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         CandidateParseResult,
         CandidateSkill,
     )
+    from backend.models.match_result import MatchResult
 
 
 class CandidateProfile(Base):
@@ -54,4 +55,9 @@ class CandidateProfile(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
         uselist=False,
+    )
+    match_results: Mapped[list[MatchResult]] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

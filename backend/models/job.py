@@ -11,6 +11,7 @@ from backend.database.base import Base
 
 if TYPE_CHECKING:
     from backend.models.job_parse_result import JobParseResult
+    from backend.models.match_result import MatchResult
     from backend.models.skill import JobSkill
 
 
@@ -71,4 +72,9 @@ class JobPosting(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
         uselist=False,
+    )
+    match_results: Mapped[list[MatchResult]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

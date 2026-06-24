@@ -19,6 +19,7 @@ from backend.database.base import Base
 if TYPE_CHECKING:
     from backend.models.candidate_parse_result import CandidateSkill
     from backend.models.job import JobPosting
+    from backend.models.match_result import MatchSkillDetail
 
 
 class Skill(Base):
@@ -41,6 +42,9 @@ class Skill(Base):
         back_populates="skill",
     )
     candidate_skills: Mapped[list[CandidateSkill]] = relationship(
+        back_populates="skill",
+    )
+    match_skill_details: Mapped[list[MatchSkillDetail]] = relationship(
         back_populates="skill",
     )
 

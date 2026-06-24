@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 6 Functionality
+## Current Milestone 7 Functionality
 
-Milestone 6 provides:
+Milestone 7 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -34,9 +34,11 @@ Milestone 6 provides:
 - persisted parse results and job-skill associations
 - deterministic parsing of saved candidate resume text
 - persisted candidate parse results and candidate-skill associations
+- deterministic, explainable candidate-job match scoring
+- persisted match results and per-skill match details
 - tests for health, readiness, database connectivity, schema validation, candidate API behavior, job API behavior, and deterministic parsing behavior
 
-Candidate-job matching, applications, AI generation, embeddings, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
+Applications, AI generation, embeddings, frontend functionality, analytics, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -109,7 +111,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`. The sixth migration creates only match scoring tables: `match_results` and `match_skill_details`.
 
 ## Run The API
 
@@ -324,6 +326,32 @@ Candidate parser limitations:
 - does not match candidates to jobs
 - does not use LLMs, embeddings, or semantic similarity
 
+## Deterministic Match Scoring
+
+Match scoring compares one parsed candidate with one parsed job using deterministic Python logic only. It does not use LLMs, embeddings, semantic similarity, external AI APIs, or scraping.
+
+Matching endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/candidates/{candidate_id}/jobs/{job_id}/match` | Calculate and persist the current match result |
+| `GET` | `/candidates/{candidate_id}/jobs/{job_id}/match-result` | Retrieve the last saved match result |
+
+The scorer uses these base weights:
+
+- required skills: `55`
+- preferred skills: `15`
+- experience: `20`
+- education: `10`
+
+Only applicable dimensions participate. Missing dimensions are excluded and remaining weights are normalized to total `100` using deterministic half-up rounding. If rounded weights leave a remainder, the adjustment priority is required skills, preferred skills, experience, then education; negative remainders are removed in reverse priority.
+
+Experience uses parsed candidate years first, then profile years. A zero-year job requirement scores `100` and does not divide by zero. Education is scored using the stored education levels only; the scorer does not infer or modify candidate or job data.
+
+Saved match results can become stale. Updating or re-parsing a candidate or job does not automatically recalculate existing matches. Use the `POST` match endpoint again to refresh the saved calculation.
+
+Match responses include component scores, applicable weights, matched and missing required skills, matched and missing preferred skills, experience comparison, education comparison, scoring version, and calculation timestamp. Responses do not include `resume_text` or raw job descriptions.
+
 ## Run Tests
 
 Run the full suite:
@@ -366,4 +394,10 @@ Run candidate parser tests:
 
 ```powershell
 python -m pytest -q tests/unit/test_candidate_parser.py tests/integration/test_candidate_parsing_api.py
+```
+
+Run match scoring tests:
+
+```powershell
+python -m pytest -q tests/unit/test_match_scorer.py tests/integration/test_matching_api.py
 ```
