@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         CandidateParseResult,
         CandidateSkill,
     )
+    from backend.models.embedding import CandidateEmbedding, SemanticMatchResult
     from backend.models.match_result import MatchResult
 
 
@@ -63,6 +64,17 @@ class CandidateProfile(Base):
         passive_deletes=True,
     )
     applications: Mapped[list[Application]] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    embedding: Mapped[CandidateEmbedding | None] = relationship(
+        back_populates="candidate",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
+    semantic_match_results: Mapped[list[SemanticMatchResult]] = relationship(
         back_populates="candidate",
         cascade="all, delete-orphan",
         passive_deletes=True,

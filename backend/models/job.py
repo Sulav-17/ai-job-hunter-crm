@@ -11,6 +11,7 @@ from backend.database.base import Base
 
 if TYPE_CHECKING:
     from backend.models.application import Application
+    from backend.models.embedding import JobEmbedding, SemanticMatchResult
     from backend.models.job_parse_result import JobParseResult
     from backend.models.match_result import MatchResult
     from backend.models.skill import JobSkill
@@ -80,6 +81,17 @@ class JobPosting(Base):
         passive_deletes=True,
     )
     applications: Mapped[list[Application]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    embedding: Mapped[JobEmbedding | None] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
+    semantic_match_results: Mapped[list[SemanticMatchResult]] = relationship(
         back_populates="job",
         cascade="all, delete-orphan",
         passive_deletes=True,

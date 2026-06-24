@@ -8,3 +8,4 @@ SQLAlchemy>=2.0,<2.2
 alembic>=1.16,<2.0
 psycopg[binary]>=3.2,<4.0
 pydantic-settings>=2.0,<3.0
+pgvector>=0.3,<0.5

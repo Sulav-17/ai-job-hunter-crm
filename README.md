@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 8 Functionality
+## Current Milestone 9 Functionality
 
-Milestone 8 provides:
+Milestone 9 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -38,9 +38,12 @@ Milestone 8 provides:
 - persisted match results and per-skill match details
 - PostgreSQL-backed application tracking
 - status-change history for each application
+- PostgreSQL pgvector-backed candidate and job embeddings
+- local Ollama embedding-provider support
+- persisted semantic candidate-job similarity results
 - tests for health, readiness, database connectivity, schema validation, candidate API behavior, job API behavior, and deterministic parsing behavior
 
-AI generation, embeddings, frontend functionality, Kanban workflows, analytics, reminders, email, authentication, scraping, search, filtering, pagination, and demo mode are not implemented yet.
+AI generation, resume tailoring, cover letters, interview preparation, frontend functionality, Kanban workflows, analytics, reminders, email, authentication, scraping, search, filtering, pagination, file exports, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -55,15 +58,19 @@ AI generation, embeddings, frontend functionality, Kanban workflows, analytics, 
 - Psycopg 3
 - Alembic
 - PostgreSQL
+- pgvector
+- local Ollama embeddings
 
 ## PostgreSQL Prerequisite
 
-The application expects PostgreSQL to be reachable on host port `5433`.
+The application expects PostgreSQL with pgvector support to be reachable on host port `5433`.
 
-One local container option is:
+Use a PostgreSQL 17 image that includes pgvector. Do not replace an existing database volume without a backup.
+
+One local container shape is:
 
 ```powershell
-docker run --name ai-job-hunter-crm-postgres -e POSTGRES_USER=jobhunter -e POSTGRES_PASSWORD=jobhunter_dev -e POSTGRES_DB=jobhunter -p 5433:5432 -d postgres:16
+docker run --name ai-job-hunter-crm-postgres -e POSTGRES_USER=jobhunter -e POSTGRES_PASSWORD=jobhunter_dev -e POSTGRES_DB=jobhunter -p 5433:5432 -d <postgres-17-pgvector-image>
 ```
 
 Start and stop the container:
@@ -95,6 +102,10 @@ Create a local `.env` file from `.env.example` if needed:
 ```env
 APP_ENV=development
 DATABASE_URL=postgresql+psycopg://jobhunter:jobhunter_dev@localhost:5433/jobhunter
+EMBEDDING_PROVIDER=ollama
+EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_BASE_URL=http://localhost:11434
+EMBEDDING_TIMEOUT_SECONDS=60
 ```
 
 The `.env` file is ignored by git and should not contain hosted or personal credentials.
@@ -113,7 +124,7 @@ Show the current migration:
 python -m alembic current
 ```
 
-The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`. The sixth migration creates only match scoring tables: `match_results` and `match_skill_details`. The seventh migration creates only application tracking tables: `applications` and `application_status_history`.
+The baseline migration is intentionally empty. The second migration creates only the `candidate_profiles` table. The third migration creates only the `job_postings` table. The fourth migration creates only job parsing tables: `skills`, `job_skills`, and `job_parse_results`. The fifth migration creates only candidate parsing tables: `candidate_skills` and `candidate_parse_results`. The sixth migration creates only match scoring tables: `match_results` and `match_skill_details`. The seventh migration creates only application tracking tables: `applications` and `application_status_history`. The eighth migration enables the pgvector extension when needed and creates only embedding and semantic similarity tables: `candidate_embeddings`, `job_embeddings`, and `semantic_match_results`.
 
 ## Run The API
 
@@ -389,6 +400,40 @@ When status changes to `applied`, `applied_at` is automatically set only if it i
 
 List responses intentionally exclude notes. Application responses do not include candidate resume text, professional summaries, raw job descriptions, parsing evidence, matching evidence, or generated content.
 
+## Local Embeddings And Semantic Similarity
+
+Embeddings use a small provider abstraction. The default provider is local Ollama using:
+
+```text
+POST {OLLAMA_BASE_URL}/api/embed
+```
+
+Default local settings:
+
+```env
+EMBEDDING_PROVIDER=ollama
+EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_BASE_URL=http://localhost:11434
+EMBEDDING_TIMEOUT_SECONDS=60
+```
+
+Embedding endpoints:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/candidates/{candidate_id}/embedding` | Create or refresh candidate embedding metadata |
+| `GET` | `/candidates/{candidate_id}/embedding` | Retrieve candidate embedding metadata |
+| `POST` | `/jobs/{job_id}/embedding` | Create or refresh job embedding metadata |
+| `GET` | `/jobs/{job_id}/embedding` | Retrieve job embedding metadata |
+| `POST` | `/candidates/{candidate_id}/jobs/{job_id}/semantic-match` | Calculate and persist semantic similarity |
+| `GET` | `/candidates/{candidate_id}/jobs/{job_id}/semantic-match-result` | Retrieve the last saved semantic result |
+
+Candidate embedding source is built from labeled `headline`, `professional_summary`, and `resume_text` sections. Candidate `resume_text` is required. Job embedding source is built from labeled `title`, `company`, and `description` sections. Source text is normalized deterministically and hashed with SHA-256.
+
+Embedding metadata responses include IDs, provider/model identity, dimensions, source hash, embedded timestamp, and stale status. They never return raw vectors, resume text, professional summaries, job descriptions, parser evidence, matching evidence, or generated content.
+
+Semantic similarity is stored separately from deterministic match scoring. It does not change deterministic match weights or results. Saved semantic results may become stale if source text or embedding model changes; use the POST semantic endpoint to recalculate after refreshing embeddings.
+
 ## Run Tests
 
 Run the full suite:
@@ -443,4 +488,10 @@ Run application tracking tests:
 
 ```powershell
 python -m pytest -q tests/unit/test_application_schemas.py tests/integration/test_applications_api.py
+```
+
+Run embedding and semantic similarity tests:
+
+```powershell
+python -m pytest -q tests/unit/test_embedding_sources.py tests/unit/test_semantic_similarity.py tests/integration/test_embeddings_api.py
 ```
