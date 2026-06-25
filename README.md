@@ -12,9 +12,9 @@ The project will grow incrementally into a local CRM for job searching. Planned 
 
 Those later features are not implemented yet.
 
-## Current Milestone 10 Functionality
+## Current Milestone 11 Functionality
 
-Milestone 10 provides:
+Milestone 11 provides:
 
 - a minimal FastAPI backend
 - `GET /health` for application liveness
@@ -46,9 +46,10 @@ Milestone 10 provides:
 - text-only tailoring endpoints for saved candidate/job pairs
 - grounded tailored summaries, resume-bullet suggestions, cover-letter drafts, keywords, and warnings
 - stale-result detection based on source hashes, deterministic match context, provider/model identity, and prompt version
+- a polished local Streamlit CRM dashboard that uses FastAPI as its only backend interface
 - tests for health, readiness, database connectivity, schema validation, candidate API behavior, job API behavior, and deterministic parsing behavior
 
-File generation, interview preparation, frontend functionality, Kanban workflows, analytics, reminders, email, authentication, scraping, search, filtering, pagination, file exports, cloud AI providers, and demo mode are not implemented yet.
+File generation, interview preparation, analytics, reminders, email, authentication, scraping, search, filtering, pagination, file exports, cloud AI providers, deployment, and demo mode are not implemented yet.
 
 ## Technology Stack
 
@@ -66,6 +67,7 @@ File generation, interview preparation, frontend functionality, Kanban workflows
 - pgvector
 - local Ollama embeddings
 - local Ollama text generation
+- Streamlit local dashboard
 
 ## PostgreSQL Prerequisite
 
@@ -115,6 +117,8 @@ EMBEDDING_TIMEOUT_SECONDS=60
 GENERATION_PROVIDER=ollama
 GENERATION_MODEL=qwen3:4b
 GENERATION_TIMEOUT_SECONDS=120
+API_BASE_URL=http://127.0.0.1:8000
+FRONTEND_REQUEST_TIMEOUT_SECONDS=120
 ```
 
 The `.env` file is ignored by git and should not contain hosted or personal credentials.
@@ -470,6 +474,40 @@ Tailoring endpoints:
 Generation requires an existing candidate, an existing job, nonblank candidate `resume_text`, a candidate parse result, and a job parse result. It does not require semantic similarity. The service builds deterministic candidate source, job source, and match context, hashes each with SHA-256, and marks saved results stale when source hashes, match-context hash, provider/model identity, or prompt version differ.
 
 Tailoring responses include only structured generated text, keywords, warnings, hashes, timestamps, and stale status. They do not return raw resume text, professional summary source, raw job descriptions, prompts, provider payloads, vectors, or embeddings.
+
+## Streamlit Dashboard
+
+Milestone 11 adds a local Streamlit dashboard that calls the FastAPI API only. It does not import SQLAlchemy, backend ORM models, database sessions, backend services, Alembic, PostgreSQL clients, or Ollama clients.
+
+Start FastAPI first:
+
+```powershell
+python -m uvicorn backend.main:app --reload
+```
+
+Then start the dashboard in a second terminal:
+
+```powershell
+python -m streamlit run frontend/app.py
+```
+
+Frontend configuration:
+
+```env
+API_BASE_URL=http://127.0.0.1:8000
+FRONTEND_REQUEST_TIMEOUT_SECONDS=120
+```
+
+Dashboard sections:
+
+- Overview: candidate, job, application, status, recent-application, and workflow metrics from existing list endpoints
+- Candidates: list, create, detail, edit, delete confirmation, resume parsing, parse result, candidate embedding metadata
+- Jobs: list, create, detail, edit, delete confirmation, job parsing, parse result, job embedding metadata
+- Matching: deterministic score display and separate semantic similarity display
+- Tailoring: text-only generation/retrieval with summary, resume bullets, cover letter, keywords, warnings, and stale status
+- Applications: create, list, detail, notes/follow-up edits, status history, delete confirmation, and five-column Kanban workflow
+
+The dashboard may display private local resume and job data in detail views. It does not hardcode candidate data, job data, generated content, prompts, or secrets. Public demo mode, deployment, authentication, exports, scraping, email, and automatic applications are not part of this milestone.
 
 ## Run Tests
 
