@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from backend.core.mode import require_writable_mode
 from backend.database.session import get_database_session
 from backend.schemas.job import JobCreate, JobDetail, JobSummary, JobUpdate
 from backend.services import job_service
@@ -11,6 +12,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
+WritableMode = Annotated[None, Depends(require_writable_mode)]
 
 
 def get_job_or_404(db: Session, job_id: int):
@@ -24,7 +26,7 @@ def get_job_or_404(db: Session, job_id: int):
 
 
 @router.post("", response_model=JobDetail, status_code=status.HTTP_201_CREATED)
-def create_job(payload: JobCreate, db: DatabaseSession):
+def create_job(payload: JobCreate, db: DatabaseSession, _: WritableMode):
     return job_service.create_job(db, payload)
 
 
@@ -39,13 +41,13 @@ def retrieve_job(job_id: int, db: DatabaseSession):
 
 
 @router.patch("/{job_id}", response_model=JobDetail)
-def update_job(job_id: int, payload: JobUpdate, db: DatabaseSession):
+def update_job(job_id: int, payload: JobUpdate, db: DatabaseSession, _: WritableMode):
     job = get_job_or_404(db, job_id)
     return job_service.update_job(db, job, payload)
 
 
 @router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_job(job_id: int, db: DatabaseSession) -> Response:
+def delete_job(job_id: int, db: DatabaseSession, _: WritableMode) -> Response:
     job = get_job_or_404(db, job_id)
     job_service.delete_job(db, job)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

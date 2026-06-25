@@ -8,11 +8,12 @@ from frontend import components as ui
 from frontend.api_client import ApiClient, ApiClientError
 
 
-def render(api: ApiClient) -> None:
+def render(api: ApiClient, app_info: dict[str, object] | None = None) -> None:
     ui.page_header(
         "Candidates",
         "Manage candidate profiles, parse resume text, and inspect embedding metadata.",
     )
+    ui.demo_banner(app_info)
     try:
         candidates = api.list_candidates()
     except ApiClientError as exc:
@@ -22,7 +23,10 @@ def render(api: ApiClient) -> None:
     left, right = st.columns([0.95, 1.55])
     with left:
         _candidate_list(api, candidates)
-        _create_candidate_form(api)
+        if ui.is_read_only(app_info):
+            ui.read_only_panel()
+        else:
+            _create_candidate_form(api)
     with right:
         selected_id = st.session_state.get("selected_candidate_id")
         if selected_id is None and candidates:
@@ -34,7 +38,7 @@ def render(api: ApiClient) -> None:
                 "Create a candidate or select one from the list to view details.",
             )
         else:
-            _candidate_detail(api, selected_id)
+            _candidate_detail(api, selected_id, app_info)
 
 
 def _candidate_list(api: ApiClient, candidates: list[dict[str, Any]]) -> None:
@@ -49,6 +53,7 @@ def _candidate_list(api: ApiClient, candidates: list[dict[str, Any]]) -> None:
     for candidate in candidates:
         ui.card_start(compact=True)
         st.markdown(f"**{candidate['full_name']}**")
+        ui.demo_record_badge(candidate)
         st.caption(candidate.get("headline") or "No headline")
         chips = []
         if candidate.get("location"):
@@ -97,7 +102,11 @@ def _create_candidate_form(api: ApiClient) -> None:
                 ui.api_error(exc)
 
 
-def _candidate_detail(api: ApiClient, candidate_id: int) -> None:
+def _candidate_detail(
+    api: ApiClient,
+    candidate_id: int,
+    app_info: dict[str, object] | None,
+) -> None:
     try:
         candidate = api.get_candidate(candidate_id)
     except ApiClientError as exc:
@@ -105,6 +114,7 @@ def _candidate_detail(api: ApiClient, candidate_id: int) -> None:
         return
 
     st.subheader(candidate["full_name"])
+    ui.demo_record_badge(candidate)
     ui.card_start()
     detail_cols = st.columns(3)
     detail_cols[0].metric("Years", candidate.get("years_experience") or 0)
@@ -113,7 +123,10 @@ def _candidate_detail(api: ApiClient, candidate_id: int) -> None:
     st.caption(candidate.get("headline") or "No headline")
     ui.card_end()
 
-    tabs = st.tabs(["Profile", "Parse & Embedding", "Edit", "Danger Zone"])
+    tab_names = ["Profile", "Parse & Embedding"]
+    if not ui.is_read_only(app_info):
+        tab_names.extend(["Edit", "Danger Zone"])
+    tabs = st.tabs(tab_names)
     with tabs[0]:
         st.markdown("#### Professional Summary")
         st.write(candidate.get("professional_summary") or "No professional summary.")
@@ -125,29 +138,37 @@ def _candidate_detail(api: ApiClient, candidate_id: int) -> None:
                 disabled=True,
             )
     with tabs[1]:
-        _candidate_parse_and_embedding(api, candidate_id)
-    with tabs[2]:
-        _edit_candidate_form(api, candidate)
-    with tabs[3]:
-        _delete_candidate(api, candidate)
+        _candidate_parse_and_embedding(api, candidate_id, app_info)
+    if not ui.is_read_only(app_info):
+        with tabs[2]:
+            _edit_candidate_form(api, candidate)
+        with tabs[3]:
+            _delete_candidate(api, candidate)
 
 
-def _candidate_parse_and_embedding(api: ApiClient, candidate_id: int) -> None:
-    actions = st.columns(2)
-    if actions[0].button("Parse resume", type="primary", use_container_width=True):
-        try:
-            api.parse_candidate(candidate_id)
-            st.success("Candidate parsed.")
-            st.rerun()
-        except ApiClientError as exc:
-            ui.api_error(exc)
-    if actions[1].button("Create embedding", use_container_width=True):
-        try:
-            api.create_candidate_embedding(candidate_id)
-            st.success("Candidate embedding refreshed.")
-            st.rerun()
-        except ApiClientError as exc:
-            ui.api_error(exc)
+def _candidate_parse_and_embedding(
+    api: ApiClient,
+    candidate_id: int,
+    app_info: dict[str, object] | None,
+) -> None:
+    if ui.is_read_only(app_info):
+        ui.precomputed_panel()
+    else:
+        actions = st.columns(2)
+        if actions[0].button("Parse resume", type="primary", use_container_width=True):
+            try:
+                api.parse_candidate(candidate_id)
+                st.success("Candidate parsed.")
+                st.rerun()
+            except ApiClientError as exc:
+                ui.api_error(exc)
+        if actions[1].button("Create embedding", use_container_width=True):
+            try:
+                api.create_candidate_embedding(candidate_id)
+                st.success("Candidate embedding refreshed.")
+                st.rerun()
+            except ApiClientError as exc:
+                ui.api_error(exc)
 
     st.markdown("#### Parse Result")
     try:

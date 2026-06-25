@@ -101,6 +101,9 @@ class ApiClient:
     def ready(self) -> dict[str, Any]:
         return self.get("/ready")
 
+    def app_info(self) -> dict[str, Any]:
+        return self.get("/app-info")
+
     def list_candidates(self) -> list[dict[str, Any]]:
         return self.get("/candidates")
 

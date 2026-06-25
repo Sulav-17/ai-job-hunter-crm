@@ -10,12 +10,15 @@ from frontend.api_client import ApiClient, ApiClientError
 STATUSES = ["saved", "applied", "interview", "rejected", "offer"]
 
 
-def render(api: ApiClient) -> None:
+def render(api: ApiClient, app_info: dict[str, object] | None = None) -> None:
     ui.page_header(
         "Overview",
         "A command center for candidates, jobs, applications, and next actions.",
     )
-    _hero()
+    ui.demo_banner(app_info)
+    _hero(app_info)
+    if ui.is_demo_mode(app_info):
+        ui.precomputed_panel()
     try:
         candidates = api.list_candidates()
         jobs = api.list_jobs()
@@ -74,7 +77,7 @@ def render(api: ApiClient) -> None:
         ui.card_end()
 
 
-def _hero() -> None:
+def _hero(app_info: dict[str, object] | None) -> None:
     st.markdown(
         """
         <div class="crm-hero">
@@ -88,6 +91,9 @@ def _hero() -> None:
         """,
         unsafe_allow_html=True,
     )
+    if ui.is_demo_mode(app_info):
+        ui.read_only_panel()
+        return
     left, right, _ = st.columns([1, 1, 2.2])
     left.link_button(
         "Add Your Candidate Profile",

@@ -7,6 +7,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from frontend.api_client import ApiClient, ApiClientError
+from frontend import components as ui
 from frontend.navigation import query_page_needs_update, resolve_render_page
 from frontend.pages import applications, candidates, jobs, matching, overview, tailoring
 from frontend.styles import apply_global_styles
@@ -44,9 +45,10 @@ def main() -> None:
     if query_page_needs_update(st.query_params.get("page"), active_page):
         st.query_params["page"] = active_page
     api = _get_api_client()
-    selected_page = _sidebar(api, page_names, active_page)
+    app_info = _get_app_info(api)
+    selected_page = _sidebar(api, page_names, active_page, app_info)
 
-    PAGES[selected_page](api)
+    PAGES[selected_page](api, app_info)
 
 
 @st.cache_resource
@@ -56,7 +58,19 @@ def _get_api_client() -> ApiClient:
     return ApiClient(base_url=base_url, timeout_seconds=timeout_seconds)
 
 
-def _sidebar(api: ApiClient, page_names: list[str], active_page: str) -> str:
+def _get_app_info(api: ApiClient) -> dict[str, object]:
+    try:
+        return api.app_info()
+    except ApiClientError:
+        return {"app_mode": "local", "read_only": False, "demo_data": False}
+
+
+def _sidebar(
+    api: ApiClient,
+    page_names: list[str],
+    active_page: str,
+    app_info: dict[str, object],
+) -> str:
     with st.sidebar:
         st.markdown(
             """
@@ -68,6 +82,13 @@ def _sidebar(api: ApiClient, page_names: list[str], active_page: str) -> str:
             unsafe_allow_html=True,
         )
 
+        if ui.is_demo_mode(app_info):
+            ui.demo_banner(app_info)
+        else:
+            st.info(
+                "Private local mode. This dashboard calls only your configured FastAPI backend.",
+            )
+
         selected_page = _sidebar_navigation(page_names, active_page)
         st.session_state["active_page"] = selected_page
 
@@ -75,9 +96,6 @@ def _sidebar(api: ApiClient, page_names: list[str], active_page: str) -> str:
         st.caption("API connection")
         _api_status(api)
         st.caption(api.base_url)
-        st.info(
-            "Private local mode. This dashboard calls only your configured FastAPI backend.",
-        )
         return selected_page
 
 

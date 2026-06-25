@@ -47,6 +47,7 @@ class ApplicationSummary(BaseModel):
     status: str
     applied_at: datetime | None
     next_follow_up_at: datetime | None
+    is_demo: bool
     created_at: datetime
     updated_at: datetime
 

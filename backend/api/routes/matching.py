@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.core.mode import require_writable_mode
 from backend.database.session import get_database_session
 from backend.schemas.matching import MatchResultResponse
 from backend.services import match_service
@@ -10,13 +11,19 @@ from backend.services import match_service
 router = APIRouter(prefix="/candidates", tags=["matching"])
 
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
+WritableMode = Annotated[None, Depends(require_writable_mode)]
 
 
 @router.post(
     "/{candidate_id}/jobs/{job_id}/match",
     response_model=MatchResultResponse,
 )
-def calculate_match(candidate_id: int, job_id: int, db: DatabaseSession):
+def calculate_match(
+    candidate_id: int,
+    job_id: int,
+    db: DatabaseSession,
+    _: WritableMode,
+):
     try:
         return match_service.calculate_and_persist_match(db, candidate_id, job_id)
     except match_service.CandidateNotFoundError as exc:

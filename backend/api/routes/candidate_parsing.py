@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.core.mode import require_writable_mode
 from backend.database.session import get_database_session
 from backend.schemas.candidate_parser import CandidateParseResultResponse
 from backend.services import candidate_parse_service, candidate_service
@@ -10,10 +11,11 @@ from backend.services import candidate_parse_service, candidate_service
 router = APIRouter(prefix="/candidates", tags=["candidate parsing"])
 
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
+WritableMode = Annotated[None, Depends(require_writable_mode)]
 
 
 @router.post("/{candidate_id}/parse", response_model=CandidateParseResultResponse)
-def parse_candidate(candidate_id: int, db: DatabaseSession):
+def parse_candidate(candidate_id: int, db: DatabaseSession, _: WritableMode):
     try:
         result = candidate_parse_service.parse_and_persist_candidate(db, candidate_id)
     except candidate_parse_service.MissingResumeTextError as exc:

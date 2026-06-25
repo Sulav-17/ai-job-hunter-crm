@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.core.config import get_settings
+from backend.core.mode import is_demo_mode
+from backend.core.mode import require_writable_mode
 from backend.database.session import get_database_session
 from backend.schemas.embedding import (
     CandidateEmbeddingResponse,
@@ -12,20 +14,33 @@ from backend.schemas.embedding import (
 )
 from backend.services import embedding_service
 from backend.services.embedding_provider import EmbeddingProvider
+from backend.services.demo_dataset import DEMO_EMBEDDING_MODEL
 from backend.services.ollama_embedding_provider import OllamaEmbeddingProvider
 
 router = APIRouter(tags=["embeddings"])
 
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
+WritableMode = Annotated[None, Depends(require_writable_mode)]
 
 
 def get_embedding_provider() -> EmbeddingProvider:
     settings = get_settings()
+    if is_demo_mode(settings):
+        return DemoEmbeddingProvider()
     return OllamaEmbeddingProvider(
         model_name=settings.embedding_model,
         base_url=settings.ollama_base_url,
         timeout_seconds=settings.embedding_timeout_seconds,
     )
+
+
+class DemoEmbeddingProvider:
+    @property
+    def model_identity(self) -> str:
+        return DEMO_EMBEDDING_MODEL
+
+    def embed(self, source_text: str) -> list[float]:
+        raise RuntimeError("Demo embedding provider does not generate embeddings")
 
 
 EmbeddingProviderDependency = Annotated[
@@ -42,6 +57,7 @@ def create_candidate_embedding(
     candidate_id: int,
     db: DatabaseSession,
     provider: EmbeddingProviderDependency,
+    _: WritableMode,
 ):
     try:
         return embedding_service.create_or_update_candidate_embedding(
@@ -83,6 +99,7 @@ def create_job_embedding(
     job_id: int,
     db: DatabaseSession,
     provider: EmbeddingProviderDependency,
+    _: WritableMode,
 ):
     try:
         return embedding_service.create_or_update_job_embedding(db, job_id, provider)
@@ -115,6 +132,7 @@ def calculate_semantic_match(
     job_id: int,
     db: DatabaseSession,
     provider: EmbeddingProviderDependency,
+    _: WritableMode,
 ):
     try:
         return embedding_service.calculate_and_persist_semantic_match(

@@ -4,24 +4,38 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.core.config import get_settings
+from backend.core.mode import is_demo_mode, require_writable_mode
 from backend.database.session import get_database_session
 from backend.schemas.tailoring import TailoringGenerateRequest, TailoringResultResponse
 from backend.services import tailoring_service
+from backend.services.demo_dataset import DEMO_TAILORING_MODEL
 from backend.services.generation_provider import GenerationProvider
 from backend.services.ollama_generation_provider import OllamaGenerationProvider
 
 router = APIRouter(prefix="/candidates", tags=["tailoring"])
 
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
+WritableMode = Annotated[None, Depends(require_writable_mode)]
 
 
 def get_generation_provider() -> GenerationProvider:
     settings = get_settings()
+    if is_demo_mode(settings):
+        return DemoGenerationProvider()
     return OllamaGenerationProvider(
         model_name=settings.generation_model,
         base_url=settings.ollama_base_url,
         timeout_seconds=settings.generation_timeout_seconds,
     )
+
+
+class DemoGenerationProvider:
+    @property
+    def model_identity(self) -> str:
+        return DEMO_TAILORING_MODEL
+
+    def generate(self, prompt) -> dict:
+        raise RuntimeError("Demo generation provider does not generate content")
 
 
 GenerationProviderDependency = Annotated[
@@ -39,6 +53,7 @@ def generate_tailoring(
     job_id: int,
     db: DatabaseSession,
     provider: GenerationProviderDependency,
+    _: WritableMode,
     request: TailoringGenerateRequest = Body(
         default_factory=TailoringGenerateRequest,
     ),

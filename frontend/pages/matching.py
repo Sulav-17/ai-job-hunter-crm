@@ -8,11 +8,14 @@ from frontend import components as ui
 from frontend.api_client import ApiClient, ApiClientError
 
 
-def render(api: ApiClient) -> None:
+def render(api: ApiClient, app_info: dict[str, object] | None = None) -> None:
     ui.page_header(
         "Matching",
         "Compare one parsed candidate with one parsed job using deterministic and semantic signals.",
     )
+    ui.demo_banner(app_info)
+    if ui.is_demo_mode(app_info):
+        ui.precomputed_panel()
     try:
         candidates = api.list_candidates()
         jobs = api.list_jobs()
@@ -45,23 +48,31 @@ def render(api: ApiClient) -> None:
 
     deterministic, semantic = st.columns([1.2, 1])
     with deterministic:
-        _deterministic_match(api, candidate_id, job_id)
+        _deterministic_match(api, candidate_id, job_id, app_info)
     with semantic:
-        _semantic_match(api, candidate_id, job_id)
+        _semantic_match(api, candidate_id, job_id, app_info)
 
 
-def _deterministic_match(api: ApiClient, candidate_id: int, job_id: int) -> None:
+def _deterministic_match(
+    api: ApiClient,
+    candidate_id: int,
+    job_id: int,
+    app_info: dict[str, object] | None,
+) -> None:
     st.subheader("Deterministic Match")
-    actions = st.columns(2)
-    if actions[0].button("Calculate deterministic match", type="primary", use_container_width=True):
-        try:
-            api.calculate_match(candidate_id, job_id)
-            st.success("Deterministic match calculated.")
+    if ui.is_read_only(app_info):
+        st.caption("Showing the saved precomputed demo match.")
+    else:
+        actions = st.columns(2)
+        if actions[0].button("Calculate deterministic match", type="primary", use_container_width=True):
+            try:
+                api.calculate_match(candidate_id, job_id)
+                st.success("Deterministic match calculated.")
+                st.rerun()
+            except ApiClientError as exc:
+                ui.api_error(exc)
+        if actions[1].button("Retrieve saved match", use_container_width=True):
             st.rerun()
-        except ApiClientError as exc:
-            ui.api_error(exc)
-    if actions[1].button("Retrieve saved match", use_container_width=True):
-        st.rerun()
 
     try:
         result = api.get_match_result(candidate_id, job_id)
@@ -110,19 +121,27 @@ def _deterministic_match(api: ApiClient, candidate_id: int, job_id: int) -> None
     )
 
 
-def _semantic_match(api: ApiClient, candidate_id: int, job_id: int) -> None:
+def _semantic_match(
+    api: ApiClient,
+    candidate_id: int,
+    job_id: int,
+    app_info: dict[str, object] | None,
+) -> None:
     st.subheader("Semantic Similarity")
     st.caption("Separate from deterministic scoring. No hybrid score is created.")
-    actions = st.columns(2)
-    if actions[0].button("Calculate semantic match", type="primary", use_container_width=True):
-        try:
-            api.calculate_semantic_match(candidate_id, job_id)
-            st.success("Semantic match calculated.")
+    if ui.is_read_only(app_info):
+        st.caption("Showing the saved precomputed demo semantic result.")
+    else:
+        actions = st.columns(2)
+        if actions[0].button("Calculate semantic match", type="primary", use_container_width=True):
+            try:
+                api.calculate_semantic_match(candidate_id, job_id)
+                st.success("Semantic match calculated.")
+                st.rerun()
+            except ApiClientError as exc:
+                ui.api_error(exc)
+        if actions[1].button("Retrieve semantic result", use_container_width=True):
             st.rerun()
-        except ApiClientError as exc:
-            ui.api_error(exc)
-    if actions[1].button("Retrieve semantic result", use_container_width=True):
-        st.rerun()
 
     try:
         result = api.get_semantic_match_result(candidate_id, job_id)

@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from frontend.api_client import ApiClient, ApiClientError, ApiUnavailableError
+from frontend.components import is_demo_mode, is_read_only
 from frontend.navigation import (
     query_page_needs_update,
     resolve_active_page,
@@ -21,6 +22,29 @@ def test_no_content_response() -> None:
     client = _client([httpx.Response(204)])
 
     assert client.delete("/candidates/1") is None
+
+
+def test_app_info_response_and_read_only_helpers() -> None:
+    client = _client(
+        [
+            httpx.Response(
+                200,
+                json={
+                    "app_mode": "demo",
+                    "read_only": True,
+                    "demo_data": True,
+                    "notice": "This demonstration contains fictional, precomputed data.",
+                },
+            ),
+        ],
+    )
+
+    app_info = client.app_info()
+
+    assert app_info["app_mode"] == "demo"
+    assert is_demo_mode(app_info) is True
+    assert is_read_only(app_info) is True
+    assert is_demo_mode({"app_mode": "local", "read_only": False}) is False
 
 
 def test_fastapi_string_detail_extraction() -> None:

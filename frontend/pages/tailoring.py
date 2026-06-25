@@ -8,11 +8,14 @@ from frontend import components as ui
 from frontend.api_client import ApiClient, ApiClientError
 
 
-def render(api: ApiClient) -> None:
+def render(api: ApiClient, app_info: dict[str, object] | None = None) -> None:
     ui.page_header(
         "Tailoring",
         "Generate and review text-only, evidence-backed application materials.",
     )
+    ui.demo_banner(app_info)
+    if ui.is_demo_mode(app_info):
+        ui.precomputed_panel()
     try:
         candidates = api.list_candidates()
         jobs = api.list_jobs()
@@ -40,13 +43,16 @@ def render(api: ApiClient) -> None:
         ui.empty_state("Select records", "Tailoring requires one candidate and one job.")
         return
 
-    actions = st.columns([1, 1, 1.4])
-    if actions[0].button("Generate or reuse", type="primary", use_container_width=True):
-        _generate(api, candidate_id, job_id, regenerate=False)
-    if actions[1].button("Force regeneration", use_container_width=True):
-        _generate(api, candidate_id, job_id, regenerate=True)
-    if actions[2].button("Retrieve saved tailoring result", use_container_width=True):
-        st.rerun()
+    if ui.is_read_only(app_info):
+        st.caption("Showing the saved precomputed demo tailoring result.")
+    else:
+        actions = st.columns([1, 1, 1.4])
+        if actions[0].button("Generate or reuse", type="primary", use_container_width=True):
+            _generate(api, candidate_id, job_id, regenerate=False)
+        if actions[1].button("Force regeneration", use_container_width=True):
+            _generate(api, candidate_id, job_id, regenerate=True)
+        if actions[2].button("Retrieve saved tailoring result", use_container_width=True):
+            st.rerun()
 
     try:
         result = api.get_tailoring_result(candidate_id, job_id)

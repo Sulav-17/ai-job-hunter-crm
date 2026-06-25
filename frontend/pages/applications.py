@@ -11,11 +11,12 @@ from frontend.api_client import ApiClient, ApiClientError
 STATUSES = ["saved", "applied", "interview", "rejected", "offer"]
 
 
-def render(api: ApiClient) -> None:
+def render(api: ApiClient, app_info: dict[str, object] | None = None) -> None:
     ui.page_header(
         "Applications",
         "Track saved opportunities through a polished five-stage workflow.",
     )
+    ui.demo_banner(app_info)
     try:
         candidates = api.list_candidates()
         jobs = api.list_jobs()
@@ -27,14 +28,17 @@ def render(api: ApiClient) -> None:
     candidate_names = {candidate["id"]: ui.candidate_label(candidate) for candidate in candidates}
     job_names = {job["id"]: ui.job_label(job) for job in jobs}
 
-    _create_application_form(api, candidates, jobs)
+    if ui.is_read_only(app_info):
+        ui.read_only_panel()
+    else:
+        _create_application_form(api, candidates, jobs)
     st.divider()
-    _kanban(api, applications, candidate_names, job_names)
+    _kanban(api, applications, candidate_names, job_names, app_info)
 
     selected_id = st.session_state.get("selected_application_id")
     if selected_id is not None:
         st.divider()
-        _application_detail(api, selected_id, candidate_names, job_names)
+        _application_detail(api, selected_id, candidate_names, job_names, app_info)
 
 
 def _create_application_form(
@@ -75,6 +79,7 @@ def _kanban(
     applications: list[dict[str, Any]],
     candidate_names: dict[int, str],
     job_names: dict[int, str],
+    app_info: dict[str, object] | None,
 ) -> None:
     st.subheader("Kanban Workflow")
     columns = st.columns(5)
@@ -89,7 +94,7 @@ def _kanban(
             if not status_apps:
                 st.caption("No cards.")
             for application in status_apps:
-                _application_card(api, application, candidate_names, job_names)
+                _application_card(api, application, candidate_names, job_names, app_info)
 
 
 def _application_card(
@@ -97,6 +102,7 @@ def _application_card(
     application: dict[str, Any],
     candidate_names: dict[int, str],
     job_names: dict[int, str],
+    app_info: dict[str, object] | None,
 ) -> None:
     ui.card_start(compact=True)
     job_label = job_names.get(application["job_id"], f"Job #{application['job_id']}")
@@ -105,24 +111,26 @@ def _application_card(
         f"Candidate #{application['candidate_id']}",
     )
     st.markdown(f"**{job_label}**")
+    ui.demo_record_badge(application)
     st.caption(candidate_label)
     ui.status_badge(application["status"])
     st.caption(f"Follow-up: {ui.format_datetime(application.get('next_follow_up_at'))}")
     detail = st.button("Open details", key=f"application_detail_{application['id']}")
-    new_status = st.selectbox(
-        "Move status",
-        STATUSES,
-        index=STATUSES.index(application["status"]),
-        key=f"application_status_{application['id']}",
-        label_visibility="collapsed",
-    )
-    if st.button("Update status", key=f"application_status_update_{application['id']}"):
-        try:
-            api.update_application(application["id"], {"status": new_status})
-            st.success("Status updated.")
-            st.rerun()
-        except ApiClientError as exc:
-            ui.api_error(exc)
+    if not ui.is_read_only(app_info):
+        new_status = st.selectbox(
+            "Move status",
+            STATUSES,
+            index=STATUSES.index(application["status"]),
+            key=f"application_status_{application['id']}",
+            label_visibility="collapsed",
+        )
+        if st.button("Update status", key=f"application_status_update_{application['id']}"):
+            try:
+                api.update_application(application["id"], {"status": new_status})
+                st.success("Status updated.")
+                st.rerun()
+            except ApiClientError as exc:
+                ui.api_error(exc)
     if detail:
         st.session_state["selected_application_id"] = application["id"]
         st.rerun()
@@ -134,6 +142,7 @@ def _application_detail(
     application_id: int,
     candidate_names: dict[int, str],
     job_names: dict[int, str],
+    app_info: dict[str, object] | None,
 ) -> None:
     try:
         application = api.get_application(application_id)
@@ -143,21 +152,28 @@ def _application_detail(
         return
 
     st.subheader(f"Application #{application_id}")
+    ui.demo_record_badge(application)
     ui.card_start()
     st.write(job_names.get(application["job_id"], f"Job #{application['job_id']}"))
     st.caption(candidate_names.get(application["candidate_id"], f"Candidate #{application['candidate_id']}"))
     ui.status_badge(application["status"])
     ui.card_end()
 
-    tabs = st.tabs(["Detail", "Edit", "History", "Danger Zone"])
+    tab_names = ["Detail", "History"]
+    if not ui.is_read_only(app_info):
+        tab_names = ["Detail", "Edit", "History", "Danger Zone"]
+    tabs = st.tabs(tab_names)
     with tabs[0]:
         st.markdown("#### Notes Preview")
         st.write(application.get("notes") or "No notes.")
         st.caption(f"Applied: {ui.format_datetime(application.get('applied_at'))}")
         st.caption(f"Next follow-up: {ui.format_datetime(application.get('next_follow_up_at'))}")
-    with tabs[1]:
-        _edit_application_form(api, application)
-    with tabs[2]:
+    history_tab_index = 1
+    if not ui.is_read_only(app_info):
+        with tabs[1]:
+            _edit_application_form(api, application)
+        history_tab_index = 2
+    with tabs[history_tab_index]:
         if not history:
             ui.empty_state("No status history", "Status changes will appear here.")
         for item in history:
@@ -167,8 +183,9 @@ def _application_detail(
             )
             st.caption(ui.format_datetime(item.get("changed_at")))
             ui.card_end()
-    with tabs[3]:
-        _delete_application(api, application)
+    if not ui.is_read_only(app_info):
+        with tabs[3]:
+            _delete_application(api, application)
 
 
 def _edit_application_form(api: ApiClient, application: dict[str, Any]) -> None:

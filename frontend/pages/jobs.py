@@ -11,8 +11,9 @@ EMPLOYMENT_TYPES = ["", "full_time", "part_time", "contract", "internship", "tem
 WORK_MODES = ["", "remote", "hybrid", "on_site"]
 
 
-def render(api: ApiClient) -> None:
+def render(api: ApiClient, app_info: dict[str, object] | None = None) -> None:
     ui.page_header("Jobs", "Manage saved job postings, parsing, and embedding metadata.")
+    ui.demo_banner(app_info)
     try:
         jobs = api.list_jobs()
     except ApiClientError as exc:
@@ -22,7 +23,10 @@ def render(api: ApiClient) -> None:
     left, right = st.columns([0.95, 1.55])
     with left:
         _job_list(jobs)
-        _create_job_form(api)
+        if ui.is_read_only(app_info):
+            ui.read_only_panel()
+        else:
+            _create_job_form(api)
     with right:
         selected_id = st.session_state.get("selected_job_id")
         if selected_id is None and jobs:
@@ -31,7 +35,7 @@ def render(api: ApiClient) -> None:
         if selected_id is None:
             ui.empty_state("No job selected", "Create or select a job to view details.")
         else:
-            _job_detail(api, selected_id)
+            _job_detail(api, selected_id, app_info)
 
 
 def _job_list(jobs: list[dict[str, Any]]) -> None:
@@ -42,6 +46,7 @@ def _job_list(jobs: list[dict[str, Any]]) -> None:
     for job in jobs:
         ui.card_start(compact=True)
         st.markdown(f"**{job['title']}**")
+        ui.demo_record_badge(job)
         st.caption(job["company"])
         chips = [
             value
@@ -88,7 +93,7 @@ def _create_job_form(api: ApiClient) -> None:
                 ui.api_error(exc)
 
 
-def _job_detail(api: ApiClient, job_id: int) -> None:
+def _job_detail(api: ApiClient, job_id: int, app_info: dict[str, object] | None) -> None:
     try:
         job = api.get_job(job_id)
     except ApiClientError as exc:
@@ -96,6 +101,7 @@ def _job_detail(api: ApiClient, job_id: int) -> None:
         return
 
     st.subheader(job["title"])
+    ui.demo_record_badge(job)
     ui.card_start()
     cols = st.columns(3)
     cols[0].metric("Company", job["company"])
@@ -107,35 +113,46 @@ def _job_detail(api: ApiClient, job_id: int) -> None:
     )
     ui.card_end()
 
-    tabs = st.tabs(["Description", "Parse & Embedding", "Edit", "Danger Zone"])
+    tab_names = ["Description", "Parse & Embedding"]
+    if not ui.is_read_only(app_info):
+        tab_names.extend(["Edit", "Danger Zone"])
+    tabs = st.tabs(tab_names)
     with tabs[0]:
         st.text_area("Job description", value=job.get("description") or "", height=320, disabled=True)
         if job.get("source_url"):
             st.link_button("Open source URL", job["source_url"])
     with tabs[1]:
-        _job_parse_and_embedding(api, job_id)
-    with tabs[2]:
-        _edit_job_form(api, job)
-    with tabs[3]:
-        _delete_job(api, job)
+        _job_parse_and_embedding(api, job_id, app_info)
+    if not ui.is_read_only(app_info):
+        with tabs[2]:
+            _edit_job_form(api, job)
+        with tabs[3]:
+            _delete_job(api, job)
 
 
-def _job_parse_and_embedding(api: ApiClient, job_id: int) -> None:
-    actions = st.columns(2)
-    if actions[0].button("Parse job", type="primary", use_container_width=True):
-        try:
-            api.parse_job(job_id)
-            st.success("Job parsed.")
-            st.rerun()
-        except ApiClientError as exc:
-            ui.api_error(exc)
-    if actions[1].button("Create embedding", use_container_width=True):
-        try:
-            api.create_job_embedding(job_id)
-            st.success("Job embedding refreshed.")
-            st.rerun()
-        except ApiClientError as exc:
-            ui.api_error(exc)
+def _job_parse_and_embedding(
+    api: ApiClient,
+    job_id: int,
+    app_info: dict[str, object] | None,
+) -> None:
+    if ui.is_read_only(app_info):
+        ui.precomputed_panel()
+    else:
+        actions = st.columns(2)
+        if actions[0].button("Parse job", type="primary", use_container_width=True):
+            try:
+                api.parse_job(job_id)
+                st.success("Job parsed.")
+                st.rerun()
+            except ApiClientError as exc:
+                ui.api_error(exc)
+        if actions[1].button("Create embedding", use_container_width=True):
+            try:
+                api.create_job_embedding(job_id)
+                st.success("Job embedding refreshed.")
+                st.rerun()
+            except ApiClientError as exc:
+                ui.api_error(exc)
 
     st.markdown("#### Parse Result")
     try:

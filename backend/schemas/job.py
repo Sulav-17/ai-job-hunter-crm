@@ -78,6 +78,7 @@ class JobSummary(BaseModel):
     location: str | None
     employment_type: str | None
     work_mode: str | None
+    is_demo: bool
     created_at: datetime
     updated_at: datetime
 

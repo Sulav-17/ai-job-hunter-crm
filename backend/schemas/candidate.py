@@ -38,6 +38,7 @@ class CandidateSummary(BaseModel):
     headline: str | None
     location: str | None
     years_experience: int | None
+    is_demo: bool
     created_at: datetime
     updated_at: datetime
 

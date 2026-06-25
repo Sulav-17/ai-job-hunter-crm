@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from backend.core.mode import require_writable_mode
 from backend.database.session import get_database_session
 from backend.schemas.application import (
     ApplicationCreate,
@@ -16,6 +17,7 @@ from backend.services import application_service
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 DatabaseSession = Annotated[Session, Depends(get_database_session)]
+WritableMode = Annotated[None, Depends(require_writable_mode)]
 
 
 @router.post(
@@ -23,7 +25,7 @@ DatabaseSession = Annotated[Session, Depends(get_database_session)]
     response_model=ApplicationDetail,
     status_code=status.HTTP_201_CREATED,
 )
-def create_application(payload: ApplicationCreate, db: DatabaseSession):
+def create_application(payload: ApplicationCreate, db: DatabaseSession, _: WritableMode):
     try:
         return application_service.create_application(db, payload)
     except application_service.CandidateNotFoundError as exc:
@@ -64,6 +66,7 @@ def update_application(
     application_id: int,
     payload: ApplicationUpdate,
     db: DatabaseSession,
+    _: WritableMode,
 ):
     try:
         return application_service.update_application(db, application_id, payload)
@@ -75,7 +78,7 @@ def update_application(
 
 
 @router.delete("/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_application(application_id: int, db: DatabaseSession) -> Response:
+def delete_application(application_id: int, db: DatabaseSession, _: WritableMode) -> Response:
     try:
         application_service.delete_application(db, application_id)
     except application_service.ApplicationNotFoundError as exc:

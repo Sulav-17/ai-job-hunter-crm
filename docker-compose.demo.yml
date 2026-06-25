@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.3-pg17-trixie
+    environment:
+      POSTGRES_USER: demo_jobhunter
+      POSTGRES_PASSWORD: demo_jobhunter_dev
+      POSTGRES_DB: demo_jobhunter
+    volumes:
+      - demo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo_jobhunter -d demo_jobhunter"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      APP_MODE: demo
+      DEMO_SEED_ON_STARTUP: "true"
+      DATABASE_URL: postgresql+psycopg://demo_jobhunter:demo_jobhunter_dev@postgres:5432/demo_jobhunter
+      EMBEDDING_PROVIDER: ollama
+      EMBEDDING_MODEL: nomic-embed-text
+      GENERATION_PROVIDER: ollama
+      GENERATION_MODEL: qwen3:4b
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      EMBEDDING_TIMEOUT_SECONDS: "60"
+      GENERATION_TIMEOUT_SECONDS: "120"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      API_BASE_URL: http://backend:8000
+      FRONTEND_REQUEST_TIMEOUT_SECONDS: "120"
+    ports:
+      - "8501:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  demo_postgres_data:
+    name: ai_job_hunter_demo_postgres_data

@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_env: str = "development"
+    app_mode: str = "local"
     database_url: str
     embedding_provider: str = "ollama"
     embedding_model: str = "nomic-embed-text"
@@ -14,12 +15,21 @@ class Settings(BaseSettings):
     generation_provider: str = "ollama"
     generation_model: str = "qwen3:4b"
     generation_timeout_seconds: int = Field(default=120, gt=0)
+    demo_seed_on_startup: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("app_mode")
+    @classmethod
+    def validate_app_mode(cls, value: str) -> str:
+        normalized = value.strip().casefold()
+        if normalized not in {"local", "demo"}:
+            raise ValueError("APP_MODE must be local or demo")
+        return normalized
 
     @field_validator("embedding_provider")
     @classmethod

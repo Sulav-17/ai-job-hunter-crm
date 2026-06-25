@@ -65,6 +65,43 @@ def status_badge(status: str) -> None:
     st.markdown(badge(label, tone), unsafe_allow_html=True)
 
 
+def is_demo_mode(app_info: dict[str, Any] | None) -> bool:
+    return bool(app_info and app_info.get("app_mode") == "demo")
+
+
+def is_read_only(app_info: dict[str, Any] | None) -> bool:
+    return bool(app_info and app_info.get("read_only"))
+
+
+def demo_banner(app_info: dict[str, Any] | None) -> None:
+    if not is_demo_mode(app_info):
+        return
+    st.markdown(badge("Demo Mode", "warning"), unsafe_allow_html=True)
+    st.info(
+        app_info.get("notice")
+        or "This demonstration contains fictional, precomputed data.",
+    )
+
+
+def demo_record_badge(record: dict[str, Any]) -> None:
+    if record.get("is_demo"):
+        st.markdown(badge("Fictional demo record", "warning"), unsafe_allow_html=True)
+
+
+def read_only_panel() -> None:
+    st.info(
+        "Demo mode is read-only. Create, edit, delete, parse, embed, match, "
+        "tailor, and status-update actions are disabled for public browsing."
+    )
+
+
+def precomputed_panel() -> None:
+    st.caption(
+        "Demo matching, semantic scores, embeddings, and tailoring outputs are "
+        "precomputed fictional records. Ollama is not called during demo browsing."
+    )
+
+
 def stale_badge(stale: bool) -> None:
     st.markdown(
         badge("Stale - refresh recommended", "warning")
