@@ -5,6 +5,23 @@ candidate and job management, deterministic parsing, explainable scoring, option
 local semantic similarity, grounded tailoring suggestions, and application tracking
 behind a FastAPI backend and a polished Streamlit dashboard.
 
+## Live Demo
+
+[Launch the read-only AI Job Hunter CRM demo](https://sulav-ai-job-hunter-crm-demo-17.streamlit.app)
+
+The hosted demo contains fictional, precomputed data and is safe for public portfolio
+browsing. Visitors can explore candidate and job records, deterministic matching,
+semantic similarity, evidence-backed tailoring, and the five-stage application
+Kanban without creating, editing, or deleting data.
+
+- **Live app:** <https://sulav-ai-job-hunter-crm-demo-17.streamlit.app>
+- **API documentation:** <https://ai-job-hunter-crm.onrender.com/docs>
+- **Portfolio:** <https://sulav-baral-portfolio.vercel.app/>
+- **Verified automated tests:** 215
+- **Database migrations:** 10
+
+The free Render backend may take roughly a minute to wake after a period of inactivity.
+
 The project supports two explicit modes:
 
 - `APP_MODE=local`: full private application for the owner's real job search data.
@@ -32,6 +49,7 @@ data under the user's local control.
 - Streamlit dashboard that talks only to FastAPI.
 - Read-only fictional demo mode that does not require Ollama.
 - Docker support for PostgreSQL 17 + pgvector, FastAPI, and Streamlit.
+- Public deployment using Streamlit Community Cloud, Render, and Supabase PostgreSQL.
 
 ## Screenshots
 
@@ -62,7 +80,7 @@ See [docs/architecture.md](docs/architecture.md) for the full architecture notes
 - PostgreSQL 17
 - pgvector
 - Psycopg 3
-- HTTPX / HTTPX2
+- HTTPX
 - Pydantic settings
 - pytest
 - Docker Compose
@@ -169,7 +187,7 @@ python -m uvicorn backend.main:app --reload
 In another terminal:
 
 ```powershell
-python -m streamlit run frontend/app.py
+python -m streamlit run streamlit_app.py
 ```
 
 ## Ollama Setup
@@ -322,6 +340,7 @@ docs/          Architecture, demo, privacy, and portfolio docs
 - No email, notifications, payments, DOCX/PDF export, or browser extension.
 - Demo reset is CLI/container-startup only.
 - Local Ollama quality depends on locally installed models.
+- Free hosted services may cold-start after inactivity.
 
 ## Future Improvements
 

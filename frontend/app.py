@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import os
-from urllib.parse import urlencode
 
 import streamlit as st
 from dotenv import load_dotenv
 
-from frontend.api_client import ApiClient, ApiClientError
 from frontend import components as ui
+from frontend.api_client import ApiClient, ApiClientError
 from frontend.navigation import query_page_needs_update, resolve_render_page
 from frontend.pages import applications, candidates, jobs, matching, overview, tailoring
 from frontend.styles import apply_global_styles
@@ -22,6 +21,7 @@ PAGES = {
 }
 
 PENDING_NAVIGATION_KEY = "pending_navigation_page"
+NAVIGATION_WIDGET_KEY = "sidebar_navigation"
 
 
 def main() -> None:
@@ -30,6 +30,7 @@ def main() -> None:
         page_title="AI Job Hunter CRM",
         page_icon=":briefcase:",
         layout="wide",
+        initial_sidebar_state="expanded",
     )
     apply_global_styles()
 
@@ -42,12 +43,13 @@ def main() -> None:
         page_names,
     )
     st.session_state["active_page"] = active_page
+
     if query_page_needs_update(st.query_params.get("page"), active_page):
         st.query_params["page"] = active_page
+
     api = _get_api_client()
     app_info = _get_app_info(api)
     selected_page = _sidebar(api, page_names, active_page, app_info)
-
     PAGES[selected_page](api, app_info)
 
 
@@ -75,8 +77,11 @@ def _sidebar(
         st.markdown(
             """
             <div class="crm-sidebar-brand">
-                <div class="crm-sidebar-brand-title">AI Job Hunter CRM</div>
-                <div class="crm-sidebar-brand-subtitle">Local-first career workspace</div>
+                <div class="crm-sidebar-brand-mark">AI</div>
+                <div>
+                    <div class="crm-sidebar-brand-title">Job Hunter CRM</div>
+                    <div class="crm-sidebar-brand-subtitle">Career intelligence workspace</div>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -85,33 +90,45 @@ def _sidebar(
         if ui.is_demo_mode(app_info):
             ui.demo_banner(app_info)
         else:
-            st.info(
-                "Private local mode. This dashboard calls only your configured FastAPI backend.",
-            )
+            st.info("Private local workspace")
+
+        st.markdown(
+            '<div class="crm-sidebar-nav-label">Workspace</div>',
+            unsafe_allow_html=True,
+        )
 
         selected_page = _sidebar_navigation(page_names, active_page)
         st.session_state["active_page"] = selected_page
 
-        st.divider()
-        st.caption("API connection")
+        st.markdown('<div class="crm-sidebar-footer">', unsafe_allow_html=True)
+        st.caption("System status")
         _api_status(api)
-        st.caption(api.base_url)
+        st.markdown("</div>", unsafe_allow_html=True)
         return selected_page
 
 
 def _sidebar_navigation(page_names: list[str], active_page: str) -> str:
-    selected_page = active_page
-    st.markdown('<div class="crm-sidebar-nav-label">Navigation</div>', unsafe_allow_html=True)
-    for page_name in page_names:
-        button_type = "primary" if page_name == active_page else "secondary"
-        st.link_button(
-            page_name,
-            f"?{urlencode({'page': page_name})}",
-            key=f"nav_button_{page_name}",
-            type=button_type,
-            use_container_width=True,
-        )
-    return selected_page
+    if st.session_state.get(NAVIGATION_WIDGET_KEY) != active_page:
+        st.session_state[NAVIGATION_WIDGET_KEY] = active_page
+
+    st.radio(
+        "Workspace navigation",
+        options=page_names,
+        key=NAVIGATION_WIDGET_KEY,
+        on_change=_on_navigation_change,
+        label_visibility="collapsed",
+    )
+    return str(st.session_state[NAVIGATION_WIDGET_KEY])
+
+
+def _on_navigation_change() -> None:
+    selected_page = st.session_state.get(NAVIGATION_WIDGET_KEY)
+    if not isinstance(selected_page, str) or selected_page not in PAGES:
+        return
+
+    st.session_state[PENDING_NAVIGATION_KEY] = selected_page
+    st.session_state["active_page"] = selected_page
+    st.query_params["page"] = selected_page
 
 
 def _api_status(api: ApiClient) -> None:
@@ -121,9 +138,9 @@ def _api_status(api: ApiClient) -> None:
             api.ready()
             st.success("API ready")
         except ApiClientError:
-            st.warning("API reachable, database not ready")
+            st.warning("API reachable, database waking")
     except ApiClientError:
-        st.error("API unavailable")
+        st.error("API waking up")
 
 
 if __name__ == "__main__":
